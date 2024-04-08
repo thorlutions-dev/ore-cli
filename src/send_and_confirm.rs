@@ -25,7 +25,7 @@ const GATEWAY_RETRIES: usize = 4;
 const CONFIRM_RETRIES: usize = 4;
 
 const CONFIRM_DELAY: u64 = 5000;
-const GATEWAY_DELAY: u64 = 2000;
+const GATEWAY_DELAY: u64 = 15000;
 
 impl Miner {
     pub async fn send_and_confirm(
