@@ -1,4 +1,4 @@
-FROM rust:latest as builder
+FROM rust:1.77 as builder
 
 ENV PATH="/root/.local/share/solana/install/active_release/bin:${PATH}"
 
