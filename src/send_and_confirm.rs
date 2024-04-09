@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{stdout, Write},
     time::Duration,
 };
@@ -19,13 +20,19 @@ use solana_transaction_status::{TransactionConfirmationStatus, UiTransactionEnco
 
 use crate::Miner;
 
-const RPC_RETRIES: usize = 0;
-const SIMULATION_RETRIES: usize = 4;
-const GATEWAY_RETRIES: usize = 4;
-const CONFIRM_RETRIES: usize = 4;
+fn get_env_var_u64(key: &str, default: u64) -> u64 {
+    match env::var(key) {
+        Ok(val) => val.parse::<u64>().unwrap_or(default),
+        Err(_e) => default,
+    }
+}
 
-const CONFIRM_DELAY: u64 = 5000;
-const GATEWAY_DELAY: u64 = 2000;
+fn get_env_var_usize(key: &str, default: usize) -> usize {
+    match env::var(key) {
+        Ok(val) => val.parse::<usize>().unwrap_or(default),
+        Err(_e) => default,
+    }
+}
 
 impl Miner {
     pub async fn send_and_confirm(
@@ -34,6 +41,14 @@ impl Miner {
         dynamic_cus: bool,
         skip_confirm: bool,
     ) -> ClientResult<Signature> {
+        let rpc_retries: usize = get_env_var_usize("RPC_RETRIES", 0);
+        let simulation_retries: usize = get_env_var_usize("SIMULATION_RETRIES", 4);
+        let gateway_retries: usize = get_env_var_usize("GATEWAY_RETRIES", 4);
+        let confirm_retries: usize = get_env_var_usize("CONFIRM_RETRIES", 4);
+
+        let confirm_delay: u64 = get_env_var_u64("CONFIRM_DELAY", 5000);
+        let gateway_delay: u64 = get_env_var_u64("GATEWAY_DELAY", 2000);
+
         let mut stdout = stdout();
         let signer = self.signer();
         let client =
@@ -60,7 +75,7 @@ impl Miner {
             skip_preflight: true,
             preflight_commitment: Some(CommitmentLevel::Confirmed),
             encoding: Some(UiTransactionEncoding::Base64),
-            max_retries: Some(RPC_RETRIES),
+            max_retries: Some(rpc_retries),
             min_context_slot: Some(slot),
         };
         let mut tx = Transaction::new_with_payer(ixs, Some(&signer.pubkey()));
@@ -88,7 +103,7 @@ impl Miner {
                         if let Some(err) = sim_res.value.err {
                             println!("Simulaton error: {:?}", err);
                             sim_attempts += 1;
-                            if sim_attempts.gt(&SIMULATION_RETRIES) {
+                            if sim_attempts.gt(&simulation_retries) {
                                 return Err(ClientError {
                                     request: None,
                                     kind: ClientErrorKind::Custom("Simulation failed".into()),
@@ -111,7 +126,7 @@ impl Miner {
                     Err(err) => {
                         println!("Simulaton error: {:?}", err);
                         sim_attempts += 1;
-                        if sim_attempts.gt(&SIMULATION_RETRIES) {
+                        if sim_attempts.gt(&simulation_retries) {
                             return Err(ClientError {
                                 request: None,
                                 kind: ClientErrorKind::Custom("Simulation failed".into()),
@@ -137,8 +152,8 @@ impl Miner {
                     if skip_confirm {
                         return Ok(sig);
                     }
-                    for _ in 0..CONFIRM_RETRIES {
-                        std::thread::sleep(Duration::from_millis(CONFIRM_DELAY));
+                    for _ in 0..confirm_retries {
+                        std::thread::sleep(Duration::from_millis(confirm_delay));
                         match client.get_signature_statuses(&sigs).await {
                             Ok(signature_statuses) => {
                                 println!("Confirms: {:?}", signature_statuses.value);
@@ -181,7 +196,7 @@ impl Miner {
             stdout.flush().ok();
 
             // Retry
-            std::thread::sleep(Duration::from_millis(GATEWAY_DELAY));
+            std::thread::sleep(Duration::from_millis(gateway_delay));
             (hash, slot) = client
                 .get_latest_blockhash_with_commitment(CommitmentConfig::confirmed())
                 .await
@@ -190,12 +205,12 @@ impl Miner {
                 skip_preflight: true,
                 preflight_commitment: Some(CommitmentLevel::Confirmed),
                 encoding: Some(UiTransactionEncoding::Base64),
-                max_retries: Some(RPC_RETRIES),
+                max_retries: Some(rpc_retries),
                 min_context_slot: Some(slot),
             };
             tx.sign(&[&signer], hash);
             attempts += 1;
-            if attempts > GATEWAY_RETRIES {
+            if attempts > gateway_retries {
                 return Err(ClientError {
                     request: None,
                     kind: ClientErrorKind::Custom("Max retries".into()),
