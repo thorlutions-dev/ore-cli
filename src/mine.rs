@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{stdout, Write},
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
@@ -22,8 +23,17 @@ use crate::{
 // Odds of being selected to submit a reset tx
 const RESET_ODDS: u64 = 20;
 
+fn get_env_var_u128(key: &str, default: u128) -> u128 {
+    match env::var(key) {
+        Ok(val) => val.parse::<u128>().unwrap_or(default),
+        Err(_e) => default,
+    }
+}
+
 impl Miner {
     pub async fn mine(&self, threads: u64) {
+        let submit_retries: u128 = get_env_var_u128("SUBMIT_RETRIES", 3);
+        let submit_timeout: u128 = get_env_var_u128("SUBMIT_TIMEOUT", 60000);
         // Register, if needed.
         let signer = self.signer();
         self.register().await;
@@ -53,7 +63,20 @@ impl Miner {
             // Submit mine tx.
             // Use busses randomly so on each epoch, transactions don't pile on the same busses
             println!("\n\nSubmitting hash for validation...");
+
+            let mut current_submit_retry: u128 = 0;
+            let start_time: std::time::Instant = std::time::Instant::now();
             'submit: loop {
+                if current_submit_retry.ge(&submit_retries) {
+                    println!("Failed to submit hash for validation.");
+                    break;
+                }
+
+                if start_time.elapsed().as_millis().ge(&submit_timeout) {
+                    println!("Timeout reached while submitting hash for validation.");
+                    break;
+                }
+
                 // Double check we're submitting for the right challenge
                 let proof_ = get_proof(self.cluster.clone(), signer.pubkey()).await;
                 if proof_.hash.ne(&proof.hash) {
@@ -105,6 +128,7 @@ impl Miner {
                         // TODO
                     }
                 }
+                current_submit_retry += 1;
             }
         }
     }
