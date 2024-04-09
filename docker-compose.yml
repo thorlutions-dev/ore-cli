@@ -4,7 +4,7 @@ services:
       context: .
     image: ore:latest
     command:
-      - "claim"
+      - "mine"
     env_file:
       - .env
     restart: always
