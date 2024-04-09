@@ -1,0 +1,10 @@
+services:
+  ore:
+    build:
+      context: .
+    image: ore:latest
+    command:
+      - "claim"
+    env_file:
+      - .env
+    restart: always
