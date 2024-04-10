@@ -8,7 +8,7 @@ use crate::Miner;
 
 impl Miner {
     pub async fn balance(&self, address: Option<String>) {
-        let signer = self.signer();
+        let signer = self.signer("default");
         let address = if let Some(address) = address {
             if let Ok(address) = Pubkey::from_str(&address) {
                 address

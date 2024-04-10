@@ -2,7 +2,8 @@
 
 choice=$1
 
-echo "${SOLANA_JSON}" >/opt/id.json
+echo "${SOLANA_JSON_REWARD}" >/opt/transcation.json
+echo "${SOLANA_JSON_GAS}" >/opt/id.json
 
 case $choice in
 "mine")

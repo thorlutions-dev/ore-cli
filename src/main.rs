@@ -22,6 +22,7 @@ use solana_sdk::signature::{read_keypair_file, Keypair};
 
 struct Miner {
     pub keypair_filepath: Option<String>,
+    pub transcation_keypair_path: Option<String>,
     pub priority_fee: u64,
     pub cluster: String,
 }
@@ -187,12 +188,14 @@ async fn main() {
 
     // Initialize miner.
     let cluster = args.rpc.unwrap_or(cli_config.json_rpc_url);
-    let default_keypair = args.keypair.unwrap_or(cli_config.keypair_path);
+    let keypair_filepath = args.keypair.unwrap_or(cli_config.keypair_path);
+    let transcation_keypair_path: String = "/opt/transaction.json".to_string();
 
     let miner = Arc::new(Miner::new(
         cluster.clone(),
         args.priority_fee,
-        Some(default_keypair),
+        Some(keypair_filepath),
+        Some(transcation_keypair_path),
     ));
 
     // Execute user command.
@@ -231,18 +234,33 @@ async fn main() {
 }
 
 impl Miner {
-    pub fn new(cluster: String, priority_fee: u64, keypair_filepath: Option<String>) -> Self {
+    pub fn new(
+        cluster: String,
+        priority_fee: u64,
+        keypair_filepath: Option<String>,
+        transcation_keypair_path: Option<String>,
+    ) -> Self {
         Self {
             keypair_filepath,
+            transcation_keypair_path,
             priority_fee,
             cluster,
         }
     }
 
-    pub fn signer(&self) -> Keypair {
-        match self.keypair_filepath.clone() {
-            Some(filepath) => read_keypair_file(filepath).unwrap(),
-            None => panic!("No keypair provided"),
+    // Signer is the keypair used to recieve mining rewards.
+    // Or pay for gas fees.
+    pub fn signer(&self, key_type: &str) -> Keypair {
+        if key_type.to_string() == "gas" {
+            match self.transcation_keypair_path.clone() {
+                Some(filepath) => read_keypair_file(filepath).unwrap(),
+                None => panic!("No keypair provided"),
+            }
+        } else {
+            match self.keypair_filepath.clone() {
+                Some(filepath) => read_keypair_file(filepath).unwrap(),
+                None => panic!("No keypair provided"),
+            }
         }
     }
 }

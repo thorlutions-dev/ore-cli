@@ -15,7 +15,7 @@ impl Miner {
                 return;
             }
         } else {
-            self.signer().pubkey()
+            self.signer("default").pubkey()
         };
         let proof = get_proof(self.cluster.clone(), address).await;
         let amount = (proof.claimable_rewards as f64) / 10f64.powf(ore::TOKEN_DECIMALS as f64);

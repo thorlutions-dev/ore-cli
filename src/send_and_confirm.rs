@@ -50,13 +50,14 @@ impl Miner {
         let gateway_delay: u64 = get_env_var_u64("GATEWAY_DELAY", 2000);
 
         let mut stdout = stdout();
-        let signer = self.signer();
+        let signer_reward = self.signer("default");
+        let signer_gas = self.signer("gas");
         let client =
             RpcClient::new_with_commitment(self.cluster.clone(), CommitmentConfig::confirmed());
 
         // Return error if balance is zero
         let balance = client
-            .get_balance_with_commitment(&signer.pubkey(), CommitmentConfig::confirmed())
+            .get_balance_with_commitment(&signer_gas.pubkey(), CommitmentConfig::confirmed())
             .await
             .unwrap();
         if balance.value <= 0 {
@@ -78,7 +79,7 @@ impl Miner {
             max_retries: Some(rpc_retries),
             min_context_slot: Some(slot),
         };
-        let mut tx = Transaction::new_with_payer(ixs, Some(&signer.pubkey()));
+        let mut tx = Transaction::new_with_payer(ixs, Some(&signer_gas.pubkey()));
 
         // Simulate if necessary
         if dynamic_cus {
@@ -119,7 +120,7 @@ impl Miner {
                             let mut final_ixs = vec![];
                             final_ixs.extend_from_slice(&[cu_budget_ix, cu_price_ix]);
                             final_ixs.extend_from_slice(ixs);
-                            tx = Transaction::new_with_payer(&final_ixs, Some(&signer.pubkey()));
+                            tx = Transaction::new_with_payer(&final_ixs, Some(&signer_gas.pubkey()));
                             break 'simulate;
                         }
                     }
@@ -138,7 +139,7 @@ impl Miner {
         }
 
         // Submit tx
-        tx.sign(&[&signer], hash);
+        tx.sign(&[&signer_reward], hash);
         let mut sigs = vec![];
         let mut attempts = 0;
         loop {
@@ -208,7 +209,7 @@ impl Miner {
                 max_retries: Some(rpc_retries),
                 min_context_slot: Some(slot),
             };
-            tx.sign(&[&signer], hash);
+            tx.sign(&[&signer_reward], hash);
             attempts += 1;
             if attempts > gateway_retries {
                 return Err(ClientError {

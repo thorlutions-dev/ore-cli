@@ -35,7 +35,7 @@ impl Miner {
         let submit_retries: u128 = get_env_var_u128("SUBMIT_RETRIES", 3);
         let submit_timeout: u128 = get_env_var_u128("SUBMIT_TIMEOUT", 60000);
         // Register, if needed.
-        let signer = self.signer();
+        let signer = self.signer("default");
         self.register().await;
         let mut stdout = stdout();
         let mut rng = rand::thread_rng();
@@ -146,7 +146,7 @@ impl Miner {
     }
 
     fn _find_next_hash(&self, hash: KeccakHash, difficulty: KeccakHash) -> (KeccakHash, u64) {
-        let signer = self.signer();
+        let signer = self.signer("default");
         let mut next_hash: KeccakHash;
         let mut nonce = 0u64;
         loop {
@@ -176,7 +176,7 @@ impl Miner {
             KeccakHash::new_from_array([0; 32]),
             0,
         )));
-        let signer = self.signer();
+        let signer = self.signer("default");
         let pubkey = signer.pubkey();
         let thread_handles: Vec<_> = (0..threads)
             .map(|i| {
@@ -233,7 +233,7 @@ impl Miner {
     pub async fn get_ore_display_balance(&self) -> String {
         let client =
             RpcClient::new_with_commitment(self.cluster.clone(), CommitmentConfig::confirmed());
-        let signer = self.signer();
+        let signer = self.signer("default");
         let token_account_address = spl_associated_token_account::get_associated_token_address(
             &signer.pubkey(),
             &ore::MINT_ADDRESS,
